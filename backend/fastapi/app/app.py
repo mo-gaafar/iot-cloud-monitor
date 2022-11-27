@@ -42,9 +42,11 @@ async def push_signal(signal_id: int, signal_values: list) -> dict:
 # Delete --> delete signal
 @app.delete("/signals/{signal_id}", tags = ["Signals"])
 async def delete_signal(signal_id: int) -> dict:
-    signal_dict[signal_id].pop()
-    return {"signal_id": signal_id, "signal_values": signal_dict[signal_id]}
-
+    if signal_id in signal_dict.keys():
+        signal_dict[signal_id].pop()
+        return {"signal_id": signal_id, "message": "signal deleted"}
+    else:
+        return {"signal_id": signal_id, "message": "signal not found"}
 # Get --> calculate signal statistics
 @app.get("/signals/stats/{signal_id}", tags = ["Signals"])
 async def calculate_signal_stats(signal_id: int) -> dict:
