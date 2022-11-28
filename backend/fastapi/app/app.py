@@ -137,12 +137,13 @@ async def calculate_signal_stats(signal_id: int) -> dict:
 # Get --> gets a subset of the signal
 @app.get("/signals/subset/{signal_id}", tags=["Frontend"])
 async def get_signal_subset(signal_id: int, start: int, end: int) -> dict:
-    signal_values = signal_dict[signal_id]
-    return {
-        "signal_id": signal_id,
-        "signal_values": signal_values[start:end],
-        "fsample": 1000
-    }
+    resp = signals.fetch({"signal_id":signal_id}).items
+    print (resp)
+    # return {
+    #     "signal_id": signal_id,
+    #     "signal_values": resp["signal_values"][start:end],
+    #     "fsample": 1000
+    # }
 
 
 # Get -> gets the last n values of the signal
