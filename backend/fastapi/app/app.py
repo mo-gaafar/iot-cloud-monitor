@@ -1,12 +1,15 @@
 from fastapi import FastAPI
 import numpy as np
 from deta import Deta
+from deta.base import Util
 import json
 
 deta = Deta("a0gu0e0f_F8wAnskRDHQ6PPubHyPui11CSy8KAv8S")
 signals = deta.Base("signal-store")
 
 app = FastAPI()
+
+MAX_SIGNAL_SAMPLES = 100000
 
 signal_dict = [{
     "signal_id": "1",
@@ -65,37 +68,62 @@ async def create_signal(signal_id: int) -> dict:
         return {"message": f"signal {signal_id} already exists"}
 
 
-# Put -> append signal with buffer
-@app.put("/signals/append/{signal_id}", tags=["Embedded"])
+# ! Inefficient way to update signal values, stop reading the full signal!
+# Patch -> append signal with buffer
+@app.patch("/signals/append/{signal_id}", tags=["Embedded"])
 async def push_signal(signal_id: int, signal_values: list) -> dict:
-    signal_dict = json.loads(signals.fetch())
-    if signal_id in signal_dict:
-        for value in signal_values:
-            signal_dict[signal_id].append(value)
+    try:
 
-        signals.update({
-            "signal_id": signal_id,
-            "signal_values": signal_dict[signal_id]
-        })
+        #search for signal in db
+        res = signals.fetch({"signal_id": str(signal_id)}).items[0]
+        key = res["key"]
+
+        print("signal values: ", signal_values)
+        # new_signal_values = res["signal_values"]
+        #clear array if it exceeds max size then append
+        if len(res["signal_values"]) > MAX_SIGNAL_SAMPLES:
+            if len(res["signal_values"]) + len(signal_values) > MAX_SIGNAL_SAMPLES:
+                #clear and append
+                signal_values = signal_values
+                signals.update({"signal_values": signal_values}, key)
+            else:
+                if len(signal_values) > MAX_SIGNAL_SAMPLES:
+                    return {
+                        "message": "input signal values exceed max size",
+                        "status": "error"
+                    }
+        else:
+            new_signal_values = Util.Append(signal_values)
+            print("new signal values: ", new_signal_values)
+            signals.update({"signal_values": new_signal_values}, key)
+
         return {"message": f"signal {signal_id} appended"}
-    else:
-        return {"message": f"signal {signal_id} does not exist"}
 
 
-# Delete --> delete signal
+    except:
+        return {
+            "message":
+            f"signal {signal_id} does not exist or an error occured",
+            "status": "error"
+        }
+
+
+# Delete -> delete signal
 @app.delete("/signals/{signal_id}", tags=["Embedded"])
 async def delete_signal(signal_id: int) -> dict:
-    if signal_id in signal_dict.keys():
-        signal_dict[signal_id].pop()
-        signals.delete("signal_id", signal_id)
-        return {"signal_id": signal_id, "message": "signal deleted"}
-    else:
+    try:
+        result = signals.fetch({"signal_id": str(signal_id)}).items
+        for item in result:
+            signals.delete(item["key"])
+        return {"message": f"signal {signal_id} deleted"}
+    except:
         return {"signal_id": signal_id, "message": "signal not found"}
 
 
 # Delete -> delete all signals
 @app.delete("/signals/all/", tags=["Backend", "Embedded"])
 async def delete_all_signals(confirm: str) -> dict:
+    """ Write 'y' to confirm deletion of all signals """
     if confirm == "y":
         signals_dict = signals.fetch().items
 
@@ -108,12 +136,11 @@ async def delete_all_signals(confirm: str) -> dict:
         return {"message": "confirmation failed"}
 
 
-# Get --> calculate signal statistics
+# Get -> calculate signal statistics
 @app.get("/signals/stats/{signal_id}", tags=["Frontend"])
 async def calculate_signal_stats(signal_id: int) -> dict:
-    signals_dict = signals.fetch().items
-    # print (signals_dict)
-    for item in signals_dict:
+    try:
+        item = signals.fetch({"signal_id": str(signal_id)}).items[0]
         item["signal_id"] = int(item["signal_id"])
         if item["signal_id"] == signal_id:
             signal_values = item["signal_values"]
@@ -130,28 +157,38 @@ async def calculate_signal_stats(signal_id: int) -> dict:
                     "sampling_rate": signal_dict[signal_id]["fsample"],
                 }
             }
+    except:
+        return {"signal_id": signal_id, "message": "signal not found"}
 
-    return {"signal_id": signal_id, "message": "signal not found"}
 
-
-# Get --> gets a subset of the signal
+#? start time and end time instead?
+# Get -> gets a subset of the signal
 @app.get("/signals/subset/{signal_id}", tags=["Frontend"])
 async def get_signal_subset(signal_id: int, start: int, end: int) -> dict:
-    resp = signals.fetch({"signal_id":signal_id}).items
-    print (resp)
-    # return {
-    #     "signal_id": signal_id,
-    #     "signal_values": resp["signal_values"][start:end],
-    #     "fsample": 1000
-    # }
+    resp = signals.fetch(query={"signal_id": str(signal_id)}).items[0]
+
+    if len(resp) == 0:
+        return {"signal_id": signal_id, "message": "signal not found"}
+    else:
+        return {
+            "signal_id": int(resp['signal_id']),
+            "signal_values": resp['signal_values'][start:end],
+            "fsample": resp['fsample']
+        }
 
 
 # Get -> gets the last n values of the signal
 @app.get("/signals/last/{signal_id}", tags=["Frontend"])
 async def get_last_n_values(signal_id: int, n: int) -> dict:
-    signal_dict = json.loads(signals.fetch())
-    signal_values = signal_dict[signal_id]
-    if signal_id in signal_dict.keys():
-        return {"signal_id": signal_id, "signal_values": signal_values[-n:]}
-    else:
+    try:
+        signal_values = signals.fetch(query={
+            "signal_id": str(signal_id)
+        }).items[0]["signal_values"]
+
+        if len(signal_values) != 0:
+            return {
+                "signal_id": signal_id,
+                "signal_values": signal_values[-n:]
+            }
+    except:
         return {"signal_id": signal_id, "message": "signal not found"}
