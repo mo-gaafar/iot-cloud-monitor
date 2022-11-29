@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:foam/homescreen.dart/homescreen.dart';
 import 'package:foam/skeleton/main_scaffold.dart';
 
 void main() {
@@ -18,7 +19,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Helvetica Neue',
         colorScheme: const ColorScheme.dark(),
       ),
-      home: const MainScaffold(),
+      home: const Homescreen(),
     );
   }
 }

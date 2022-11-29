@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:foam/homescreen.dart/homescreen.dart';
 import 'package:foam/models/patient.dart';
+import 'package:foam/patient_screen/patient_screen.dart';
 import 'package:foam/utils/colorpalette.dart';
 
 class MinimalistCard extends StatelessWidget {
@@ -10,16 +12,16 @@ class MinimalistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoButton(
-      padding: const EdgeInsets.fromLTRB(0, 10, 10, 0),
+      padding: const EdgeInsets.fromLTRB(0, 15, 0, 0),
       child: Container(
         height: 70,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: CustomColors.blueBg.withOpacity(0.0),
+          color: Colors.grey.shade50.withOpacity(0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(0),
+          padding: const EdgeInsets.all(10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -38,10 +40,10 @@ class MinimalistCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        patient.name,
+                        '${patient.firstName} ${patient.lastName}',
                         style: const TextStyle(
                             fontFamily: 'Helvetica Neue',
-                            color: Colors.black,
+                            color: Colors.white,
                             fontSize: 17,
                             fontWeight: FontWeight.normal),
                       ),
@@ -49,10 +51,10 @@ class MinimalistCard extends StatelessWidget {
                         height: 5,
                       ),
                       Text(
-                        patient.id,
+                        'PID: ${patient.id}',
                         style: TextStyle(
                             fontFamily: 'Helvetica Neue',
-                            color: Colors.grey.shade700,
+                            color: Colors.grey.shade400,
                             fontSize: 10,
                             fontWeight: FontWeight.normal),
                       ),
@@ -64,7 +66,7 @@ class MinimalistCard extends StatelessWidget {
                 patient.monitorId,
                 style: const TextStyle(
                     fontFamily: 'Helvetica Neue',
-                    color: Colors.black,
+                    color: Colors.white,
                     fontSize: 17,
                     fontWeight: FontWeight.normal),
               ),
@@ -73,7 +75,13 @@ class MinimalistCard extends StatelessWidget {
         ),
       ),
       onPressed: () {
-        debugPrint('Card tapped.');
+        Navigator.push(
+          context,
+          CupertinoPageRoute(
+              builder: (context) => PatientScreen(
+                    patient: patient,
+                  )),
+        );
       },
     );
   }

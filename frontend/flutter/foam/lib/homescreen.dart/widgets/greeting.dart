@@ -15,11 +15,12 @@ class Greeting extends StatelessWidget {
             children: [
               TextSpan(
                 text: 'Welcome back,\n',
-                style: TextStyle(color: Colors.grey.shade400),
+                style: TextStyle(color: Colors.grey.shade700),
               ),
               const TextSpan(
                 text: 'Dr Zeyad.',
                 style: TextStyle(
+                  color: Colors.black,
                   fontSize: 40,
                   fontWeight: FontWeight.bold,
                 ),

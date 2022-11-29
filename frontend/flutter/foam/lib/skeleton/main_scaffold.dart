@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/src/widgets/container.dart';
-import 'package:flutter/src/widgets/framework.dart';
-import 'package:foam/homescreen.dart/greeeting.dart';
-import 'package:foam/homescreen.dart/patients_section.dart';
+import 'package:foam/homescreen.dart/widgets/greeting.dart';
+import 'package:foam/homescreen.dart/widgets/patients_section.dart';
 import 'package:foam/utils/colorpalette.dart';
 
 class MainScaffold extends StatelessWidget {
