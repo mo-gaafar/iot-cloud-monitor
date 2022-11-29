@@ -229,6 +229,7 @@ lib/generated_plugin_registrant.dart
 **/ios/Runner/GeneratedPluginRegistrant.*
 
 # Exceptions to above rules.
+!**/lib
 !**/ios/**/default.mode1v3
 !**/ios/**/default.mode2v3
 !**/ios/**/default.pbxuser
