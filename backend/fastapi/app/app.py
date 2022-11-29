@@ -112,14 +112,13 @@ async def get_signals() -> dict:
         response = signals.fetch().items
         # print(len(response))
         for item in response:
-            print(item)
-            print()
             signals_info.append({
                 "signal_id": item['signal_id'],
                 "signal_name": item['signal_name'],
                 "fsample": item["fsample"],
                 "time_created": item['time_created'],
-                "time_updated": item['time_updated']
+                "time_updated": item['time_updated'],
+                "signal_length": len(item['signal_values'])
             })
         if len(signals_info) == 0:
             return {"message": "no signals found"}
@@ -300,19 +299,24 @@ async def get_last_n_values(signal_id: int, n: int) -> dict:
 @app.get("/signals/last/seconds/{signal_id}", tags=["Frontend"])
 async def get_last_values_by_seconds(signal_id: int, seconds: float) -> dict:
     try:
-        signal_values = signals.fetch(query={
-            "signal_id": signal_id
-        }).items[0]["signal_values"]
+        response = signals.fetch(query={"signal_id": signal_id}).items[0]
+        signal_values = response["signal_values"]
+        fsample = response["fsample"]
+        time_updated = response["time_updated"]
 
         if len(signal_values) != 0:
-            fsample = signal_dict[signal_id]["fsample"]
             n = int(fsample * seconds)
             return {
                 "signal_id": signal_id,
-                "signal_values": signal_values[-n:]
+                "signal_values": signal_values[-n:],
+                "fsample": fsample,
+                "time_updated": time_updated
             }
     except:
-        return {"signal_id": signal_id, "message": "signal not found"}
+        return {
+            "signal_id": signal_id,
+            "message": "signal not found or an error occured"
+        }
 
 
 @app.get("/signals/{signal_id}/alarms/", tags=["Frontend"])
