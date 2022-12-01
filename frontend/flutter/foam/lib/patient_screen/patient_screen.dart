@@ -21,7 +21,9 @@ class PatientScreen extends StatelessWidget {
         alignment: Alignment.topCenter,
         children: [
           PatientHeader(patient: patient),
-          PatientMonitor(),
+          PatientMonitor(
+            patient: patient,
+          ),
         ],
       ),
     );
