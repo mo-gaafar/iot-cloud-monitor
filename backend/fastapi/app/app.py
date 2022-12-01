@@ -87,8 +87,7 @@ signal_dict = [{
     "Heart Rate",
     "signal_values":
     np.random.rand(1000).tolist(),
-    "fsample":
-    1000,
+    "fsample": 1000,
     "time_created":
     datetime.datetime.now(timezone).isoformat(),
     "time_updated":
@@ -284,7 +283,7 @@ async def calculate_signal_stats(signal_id: int) -> dict:
                     "min": min(signal_values),
                     "std": np.std(signal_values),
                     "var": np.var(signal_values),
-                    "sampling_rate": signal_dict[signal_id]["fsample"],
+                    "sampling_rate": item["fsample"],
                 }
             }
     except:
@@ -371,12 +370,12 @@ async def check_alarms(signal_id: int) -> dict:
             output_alarm = format_alarm(alarm)
 
         return {"signal_id": signal_id,
-        "alarms": output_alarms}
+                "alarms": output_alarms}
     except:
         return {"signal_id": signal_id, "message": "signal not found"}
 
 
-def format_alarm_msg(alarm:dict):
+def format_alarm_msg(alarm: dict):
     return {
         "alarm_key": alarm["key"],
         "alarm_name": alarm.key(),
@@ -385,8 +384,9 @@ def format_alarm_msg(alarm:dict):
         "threshold": alarm["threshold"],
         "direction": alarm["direction"],
         "last_checked": datetime.datetime.now().isoformat(),
-        
+
     }
+
 
 def alarm_updater(alarm: dict, signal: dict):
 
@@ -440,7 +440,9 @@ def alarm_updater(alarm: dict, signal: dict):
 
     return alarm
 
-#TODO: this can be done better :(
+# TODO: this can be done better :(
+
+
 def get_critical_level(signal_val, threshold, threshold_direction, criticality_increment):
 
     if threshold_direction == "above":
