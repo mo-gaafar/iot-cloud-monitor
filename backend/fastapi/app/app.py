@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from deta import Deta
 from deta.base import Util
@@ -11,6 +12,16 @@ signals = deta.Base("signal-store")
 timezone = datetime.timezone(datetime.timedelta(hours=2))
 
 app = FastAPI()
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 print("Started up. at " + str(datetime.datetime.now(timezone).isoformat()))
 
@@ -88,6 +99,8 @@ signal_dict = [{
     "signal_values":
     np.random.rand(1000).tolist(),
     "fsample": 1000,
+    "window_sec": 30,
+    "decimal_point": 1,
     "time_created":
     datetime.datetime.now(timezone).isoformat(),
     "time_updated":
@@ -99,6 +112,8 @@ signal_dict = [{
     "signal_name": "SpO2",
     "signal_values": np.random.rand(1000).tolist(),
     "fsample": 1000,
+    "window_sec": 20,
+    "decimal_point": 1,
     "time_created": datetime.datetime.now(timezone).isoformat(),
     "time_updated": datetime.datetime.now(timezone).isoformat(),
     "alarms": [preset_alarms_dict["spo2_hypo"]],
@@ -108,6 +123,8 @@ signal_dict = [{
     "signal_name": "Body Temperature",
     "signal_values": np.random.rand(1000).tolist(),
     "fsample": 1000,
+    "window_sec": 30,
+    "decimal_point": 1,
     "time_created": datetime.datetime.now(timezone).isoformat(),
     "time_updated": datetime.datetime.now(timezone).isoformat(),
     "alarms": [preset_alarms_dict["temp_hypo"], preset_alarms_dict["temp_hyper"]],
@@ -150,6 +167,8 @@ async def get_signals() -> dict:
                 "signal_id": item['signal_id'],
                 "signal_name": item['signal_name'],
                 "fsample": item["fsample"],
+                "window_sec": item["window_sec"],
+                "decimal_point": item["decimal_point"],
                 "time_created": item['time_created'],
                 "time_updated": item['time_updated'],
                 "signal_length": len(item['signal_values'])
@@ -179,7 +198,7 @@ async def read_signal(signal_id: int) -> dict:
 # Post -> create new signal
 @app.post("/signals/new/{signal_id}", tags=["Embedded"])
 async def create_signal(signal_id: int, signal_name: str,
-                        f_sample: int) -> dict:
+                        f_sample: int, window_sec: int = 10, decimal_point: int = 0) -> dict:
     # check if signal_id already exists
     if len(signals.fetch({"signal_id": signal_id}).items) == 0:
         signals.insert({
@@ -187,6 +206,8 @@ async def create_signal(signal_id: int, signal_name: str,
             "signal_name": signal_name,
             "signal_values": [],
             "fsample": f_sample,
+            "window_sec": window_sec,
+            "decimal_point": decimal_point,
             "time_created": datetime.datetime.now().isoformat(),
             "time_updated": datetime.datetime.now().isoformat()
         })
@@ -367,7 +388,7 @@ async def check_alarms(signal_id: int) -> dict:
         for alarm in alarms:
             # check threshold direction
             alarm = alarm_updater(alarm, signal["signal_values"][:-1])
-            output_alarm = format_alarm(alarm)
+            output_alarm = format_alarm_msg(alarm)
 
         return {"signal_id": signal_id,
                 "alarms": output_alarms}
@@ -463,3 +484,12 @@ def get_critical_level(signal_val, threshold, threshold_direction, criticality_i
             return "Warning"
         else:
             return "Normal"
+
+
+# websockets
+# @app.websocket("/ws")
+# async def websocket_endpoint(websocket: WebSocket):
+#     await websocket.accept()
+#     while True:
+#         data = await websocket.receive_text()
+#         await websocket.send_text(f"Message text was: {data}")

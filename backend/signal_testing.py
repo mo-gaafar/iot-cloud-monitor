@@ -4,7 +4,7 @@ import json
 import time
 import wfdb
 
-url = "https://no1rz2.deta.dev/signals/append/3"
+url = "https://no1rz2.deta.dev/signals/append/1"
 
 
 def send_signal():
@@ -36,7 +36,7 @@ def send_sine_wave():
     buff_size = fs * sec_delay
     for i in range(0, len(t), buff_size):
         time.sleep(sec_delay)
-        signal_data = signal[i:i + buff_size] * 20 * np.random.rand()
+        signal_data = signal[i:i + buff_size] * 20 * np.random.rand() + 5
         signal_data = json.dumps(signal_data.tolist())
         print(signal_data)
         response = requests.patch(url, data=signal_data)
