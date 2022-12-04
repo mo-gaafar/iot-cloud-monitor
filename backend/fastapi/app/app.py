@@ -5,6 +5,7 @@ from deta import Deta
 from deta.base import Util
 import datetime
 import json
+from starlette.requests import Request
 
 print("Starting up...")
 deta = Deta("a0gu0e0f_F8wAnskRDHQ6PPubHyPui11CSy8KAv8S")
@@ -197,27 +198,60 @@ async def read_signal(signal_id: int) -> dict:
 
 # Post -> create new signal
 @app.post("/signals/new/{signal_id}", tags=["Embedded"])
-async def create_signal(signal_id: int, signal_name: str,
-                        f_sample: int, window_sec: int = 10, decimal_point: int = 0) -> dict:
-    # check if signal_id already exists
-    if len(signals.fetch({"signal_id": signal_id}).items) == 0:
-        signals.insert({
-            "signal_id": signal_id,
-            "signal_name": signal_name,
-            "signal_values": [],
-            "fsample": f_sample,
-            "window_sec": window_sec,
-            "decimal_point": decimal_point,
-            "time_created": datetime.datetime.now().isoformat(),
-            "time_updated": datetime.datetime.now().isoformat()
-        })
-        return {"message": f"signal {signal_id} created"}
-    else:
-        return {"message": f"signal {signal_id} already exists"}
+async def create_signal(signal_id: int, request: dict) -> dict:
+    """ Create new signal 
+    Swagger request example:
+    {
+        "signal_name": "Heart Rate",
+        "signal_values": [0.1, 0.2, 0.3, 0.4, 0.5],
+        "fsample": 1000,
+        "window_sec": 30,
+        "decimal_point": 1,
+        "alarms": [
+            {
+                "description": "The patient is bradycardic.",
+                "type": "hr",
+                "tiggered": 1,
+                "acknowledged": 0,
+                "threshold": 60,
+                "debouncing": 5,
+                "threshold_direction": "below",
+                "threshold_unit": "bpm",
+                "criticality_increment": -0.8,
+                "alarm_state": "Normal"
+            }]
+    }
 
+    """
+
+    try:
+        # request_body = await request.json()
+        request_body = request
+
+        if len(signals.fetch({"signal_id": signal_id}).items) == 0:
+            signals.insert({
+                "signal_id": signal_id,
+                "signal_name": request_body["signal_name"],
+                "signal_values": request_body["signal_values"],
+                "fsample": request_body["fsample"],
+                "window_sec": request_body["window_sec"],
+                "decimal_point": request_body["decimal_point"],
+                "time_created": datetime.datetime.now().isoformat(),
+                "time_updated": datetime.datetime.now().isoformat(),
+                "alarms": request_body["alarms"]
+            })
+            return {"message": f"signal {signal_id} created",
+                    "body": request_body}
+        else:
+            return {"message": f"signal {signal_id} already exists"}
+    except:
+        return {"message": "an error occured",
+                "body": request_body}
 
 # ! Inefficient way to update signal values, stop reading the full signal!
 # Patch -> append signal with buffer
+
+
 @app.patch("/signals/append/{signal_id}", tags=["Embedded"])
 async def push_signal(signal_id: int, signal_values: list) -> dict:
     try:
@@ -299,12 +333,12 @@ async def calculate_signal_stats(signal_id: int) -> dict:
                 # "signal_values": signal_values,
                 "signal_stats": {
                     "mean": sum(signal_values) / len(signal_values),
-                    "median": np.median(signal_values),
+                    "median": round(np.median(signal_values), 4),
                     "max": max(signal_values),
                     "min": min(signal_values),
                     "std": np.std(signal_values),
                     "var": np.var(signal_values),
-                    "sampling_rate": item["fsample"],
+                    "sampling_rate": item["fsample"]
                 }
             }
     except:
