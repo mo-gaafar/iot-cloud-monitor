@@ -103,13 +103,13 @@ def send_csv_signal():
     requests.delete("https://no1rz2.deta.dev/signals/2")
 
     # request creation of signal id 1
-    fsample1 = 10
-    window_sec1 = 200
+    fsample1 = 1
+    window_sec1 = 20
 
     signal1data = {
         "signal_id": 1,
         "signal_name": "Heart Rate",
-        "signal_values": np.zeros(fsample1 * window_sec1).tolist(),
+        "signal_values": [], #np.zeros(fsample1 * window_sec1).tolist(),
         "fsample": fsample1,
         "window_sec": window_sec1,
         "decimal_point": 1,
@@ -125,13 +125,13 @@ def send_csv_signal():
     print(response.text)
     # request creation of signal id 2
 
-    fsample2 = 10
-    window_sec2 = 200
+    fsample2 = 1
+    window_sec2 = 20
 
     signal2data = {
         "signal_id": 2,
         "signal_name": "Resp. Rate",
-        "signal_values": np.zeros(fsample2 * window_sec2).tolist(),
+        "signal_values": [], #np.zeros(fsample2 * window_sec2).tolist(),
         "fsample": fsample2,
         "window_sec": window_sec2,
         "decimal_point": 1,
