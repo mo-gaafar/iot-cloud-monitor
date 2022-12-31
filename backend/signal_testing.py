@@ -19,7 +19,7 @@ preset_alarms_dict = {
     "spo2_hypo": {
         "description": "The patient is hypoxic!",
         "type": "spo2",
-        "triggered": True,
+        "triggered": False,
         "threshold": 90,
         "debouncing": 5,
         "threshold_direction": "below",
@@ -28,7 +28,7 @@ preset_alarms_dict = {
     "hr_brady": {
         "description": "The patient is bradycardic!",
         "type": "hrm",
-        "triggered": True,
+        "triggered": False,
         "threshold": 50,
         "debouncing": 5,
         "threshold_direction": "below",
@@ -37,7 +37,7 @@ preset_alarms_dict = {
     "temp_hypo": {
         "description": "The patient is hypothermic!",
         "type": "temp",
-        "triggered": True,
+        "triggered": False,
         "threshold": 35,
         "debouncing": 5,
         "threshold_direction": "below",
@@ -46,7 +46,7 @@ preset_alarms_dict = {
     "temp_hyper": {
         "description": "The patient is hyperthermic!",
         "type": "temp",
-        "triggered": True,
+        "triggered": False,
         "threshold": 38,
         "debouncing": 5,
         "threshold_direction": "above",
@@ -71,7 +71,7 @@ def send_signal():
 
         signal_data = signal_data[signal:signal+buff_size]
         # send signal to server
-        response = requests.patch(url, data=signal_data)
+        response = requests.post(url, data=signal_data)
         print(response.text)
 
 
@@ -148,14 +148,14 @@ def send_csv_signal():
         payload = RespRate[i:i + buff_size]
         payload = json.dumps(payload)
         print(payload)
-        response = requests.patch(url+"2", data=payload)
+        response = requests.post(url+"2", data=payload)
         print(response.text)
 
         time.sleep(sec_delay/2)
         payload2 = HR[i:i + buff_size]
         payload2 = json.dumps(payload2)
         print(payload2)
-        response = requests.patch(url+"1", data=payload2)
+        response = requests.post(url+"1", data=payload2)
 
         print(response.text)
 
@@ -175,7 +175,7 @@ def send_sine_wave():
         signal_data = signal[i:i + buff_size] * 20 * np.random.rand() + 5
         signal_data = json.dumps(signal_data.tolist())
         print(signal_data)
-        response = requests.patch(url+"3", data=signal_data)
+        response = requests.post(url+"3", data=signal_data)
 
         print(response.text)
 

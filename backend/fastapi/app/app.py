@@ -44,7 +44,7 @@ preset_alarms_dict = {
     "spo2_hypo": {
         "description": "The patient is hypoxic!",
         "type": "spo2",
-        "triggered": True,
+        "triggered": False,
         "threshold": 90,
         "debouncing": 5,
         "threshold_direction": "below",
@@ -53,7 +53,7 @@ preset_alarms_dict = {
     "hr_brady": {
         "description": "The patient is bradycardic!",
         "type": "hrm",
-        "triggered": True,
+        "triggered": False,
         "threshold": 50,
         "debouncing": 5,
         "threshold_direction": "below",
@@ -62,7 +62,7 @@ preset_alarms_dict = {
     "temp_hypo": {
         "description": "The patient is hypothermic!",
         "type": "temp",
-        "triggered": True,
+        "triggered": False,
         "threshold": 35,
         "debouncing": 5,
         "threshold_direction": "below",
@@ -71,7 +71,7 @@ preset_alarms_dict = {
     "temp_hyper": {
         "description": "The patient is hyperthermic!",
         "type": "temp",
-        "triggered": True,
+        "triggered": False,
         "threshold": 38,
         "debouncing": 5,
         "threshold_direction": "above",
@@ -292,7 +292,7 @@ async def create_signal(signal_id: int, request: dict) -> dict:
 # Patch -> append signal with buffer
 
 
-@ app.patch("/signals/append/{signal_id}", tags=["Embedded"])
+@ app.post("/signals/append/{signal_id}", tags=["Embedded"])
 async def push_signal(signal_id: int, signal_values: list) -> dict:
     try:
         # search for signal in db

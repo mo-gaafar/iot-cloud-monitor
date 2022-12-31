@@ -15,7 +15,7 @@ preset_alarms_dict = {
     "spo2_hypo": {
         "description": "The patient is hypoxic!",
         "type": "spo2",
-        "triggered": True,
+        "triggered": False,
         "threshold": 90,
         "debouncing": 5,
         "threshold_direction": "below",
@@ -24,7 +24,7 @@ preset_alarms_dict = {
     "hr_brady": {
         "description": "The patient is bradycardic!",
         "type": "hrm",
-        "triggered": True,
+        "triggered": False,
         "threshold": 50,
         "debouncing": 5,
         "threshold_direction": "below",
@@ -33,7 +33,7 @@ preset_alarms_dict = {
     "temp_hypo": {
         "description": "The patient is hypothermic!",
         "type": "temp",
-        "triggered": True,
+        "triggered": False,
         "threshold": 35,
         "debouncing": 5,
         "threshold_direction": "below",
@@ -42,7 +42,7 @@ preset_alarms_dict = {
     "temp_hyper": {
         "description": "The patient is hyperthermic!",
         "type": "temp",
-        "triggered": True,
+        "triggered": False,
         "threshold": 38,
         "debouncing": 5,
         "threshold_direction": "above",
