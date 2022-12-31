@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from deta import Deta
 from deta.base import Util
+from alarms import preset_alarms_dict
 import datetime
 import json
 from starlette.requests import Request
@@ -28,69 +29,6 @@ print("Started up. at " + str(datetime.datetime.now(timezone).isoformat()))
 
 MAX_SIGNAL_SAMPLES = 100000
 
-#! hardcoded for now
-preset_alarms_dict = {
-    "hr_tachy": {
-        "description": "The patient is tachycardic.",
-        "type": "hrm",
-        "tiggered": True,
-        "acknowledged": False,
-        "threshold": 120,
-        "debouncing": 5,
-        "threshold_direction": "above",
-        "threshold_unit": "BPM",
-        "criticality_increment": 10,
-        "alarm_state": "Normal",
-    },
-    "spo2_hypo": {
-        "description": "The patient is hypoxic.",
-        "type": "spo2",
-        "tiggered": True,
-        "acknowledged": False,
-        "threshold": 90,
-        "debouncing": 5,
-        "threshold_direction": "below",
-        "threshold_unit": "%",
-        "criticality_increment": -5,
-        "alarm_state": "Normal",
-    },
-    "hr_brady": {
-        "description": "The patient is bradycardic.",
-        "type": "hrm",
-        "tiggered": True,
-        "acknowledged": False,
-        "threshold": 50,
-        "debouncing": 5,
-        "threshold_direction": "below",
-        "threshold_unit": "BPM",
-        "criticality_increment": -10,
-        "alarm_state": "Normal",
-    },
-    "temp_hypo": {
-        "description": "The patient is hypothermic.",
-        "type": "temp",
-        "tiggered": True,
-        "acknowledged": False,
-        "threshold": 35,
-        "debouncing": 5,
-        "threshold_direction": "below",
-        "threshold_unit": "°C",
-        "criticality_increment": -0.8,
-        "alarm_state": "Normal",
-    },
-    "temp_hyper": {
-        "description": "The patient is hyperthermic.",
-        "type": "temp",
-        "tiggered": True,
-        "acknowledged": False,
-        "threshold": 38,
-        "debouncing": 5,
-        "threshold_direction": "above",
-        "threshold_unit": "°C",
-        "criticality_increment": 0.8,
-        "alarm_state": "Normal",
-    },
-}
 
 signal_dict = [{
     "signal_id":
@@ -212,13 +150,10 @@ async def create_signal(signal_id: int, request: dict) -> dict:
                 "description": "The patient is bradycardic.",
                 "type": "hr",
                 "tiggered": 1,
-                "acknowledged": 0,
                 "threshold": 60,
                 "debouncing": 5,
                 "threshold_direction": "below",
                 "threshold_unit": "bpm",
-                "criticality_increment": -0.8,
-                "alarm_state": "Normal"
             }]
     }
 
@@ -249,6 +184,42 @@ async def create_signal(signal_id: int, request: dict) -> dict:
                 "body": request_body}
 
 # ! Inefficient way to update signal values, stop reading the full signal!
+
+
+def alarm_updater(alarm: dict, signal_values: list, fsample: float):
+
+    seconds = alarm["debounce"]
+    # get last n values of signal
+    n = int(fsample * seconds)
+
+    # clip to maximum just in case
+    if n > len(signal_values):
+        n = len(signal_values)
+
+    #! NOTE: This is not the best way to adaptively average a signal,
+    #! might not work with ecg for example due to negative values
+
+    signal_part_avg = np.average(signal_values[-n:])
+
+    if alarm is not None:
+        # check threshold direction
+        if alarm["threshold_direction"] == "above":
+            # check if last value is above threshold
+            if signal_part_avg > alarm["threshold"]:
+                # set alarm triggered
+                alarm["triggered"] = True
+            else:
+                alarm["triggered"] = False
+        elif alarm["threshold_direction"] == "below":
+            # check if last value is below threshold
+            if signal_part_avg < alarm["threshold"]:
+                # set alarm triggered
+                alarm["triggered"] = True
+            else:
+                alarm["triggered"] = False
+
+    return alarm
+
 # Patch -> append signal with buffer
 
 
@@ -275,11 +246,15 @@ async def push_signal(signal_id: int, signal_values: list) -> dict:
         else:
             new_signal_values = Util.Append(signal_values)
             # print("new signal values: ", new_signal_values)
+            alarms = res["alarms"]
+            new_alarms = alarm_updater(
+                alarms, new_signal_values, res["fsample"])
             signals.update(
                 {
                     "signal_values": new_signal_values,
                     "time_updated":
-                    datetime.datetime.now(timezone).isoformat()
+                    datetime.datetime.now(timezone).isoformat(),
+                    "alarms": new_alarms
                 }, key)
 
         return {"message": f"signal {signal_id} appended"}
@@ -393,13 +368,24 @@ async def get_last_values_by_seconds(signal_id: int, seconds: float) -> dict:
         fsample = response["fsample"]
         time_updated = response["time_updated"]
 
+        # check if any alarm in signal is triggered
+        if response["alarms"] is not None:
+            for alarm in response["alarms"]:
+                if alarm["triggered"]:
+                    alarm_triggered = True
+                    break
+                else:
+                    alarm_triggered = False
+
         if len(signal_values) != 0:
             n = int(fsample * seconds)
             return {
                 "signal_id": signal_id,
                 "signal_values": signal_values[-n:],
                 "fsample": fsample,
-                "time_updated": time_updated
+                "time_updated": time_updated,
+                "alarm_triggered": alarm_triggered,
+                "range_y": [50, 200],  # TODO: save this in db later
             }
     except:
         return {
@@ -408,122 +394,75 @@ async def get_last_values_by_seconds(signal_id: int, seconds: float) -> dict:
         }
 
 
-@app.get("/signals/{signal_id}/alarms/", tags=["Frontend"])
-async def check_alarms(signal_id: int) -> dict:
+# @app.get("/signals/{signal_id}/alarms/", tags=["Frontend"])
+# async def check_alarms(signal_id: int) -> dict:
+#     try:
+#         # fetch db signal_id
+#         signal = signals.fetch(query={"signal_id": signal_id}).items[0]
+#         # get alarms from alarm field of signal_id
+#         alarms = signal["alarms"]
+
+#         output_alarms = []
+
+#         # for each alarm in signal
+#         for alarm in alarms:
+#             # check threshold direction
+#             alarm = alarm_updater(alarm, signal["signal_values"][:-1])
+#             output_alarm = format_alarm_msg(alarm)
+
+#         return {"signal_id": signal_id,
+#                 "alarms": output_alarms}
+#     except:
+#         return {"signal_id": signal_id, "message": "signal not found"}
+
+def triggered_alarms(alarms: list, formatted: bool = False):
+    output_alarms = []
+    for alarm in alarms:
+        if alarm["triggered"]:
+            if formatted:
+                output_alarms.append(format_alarm_msg(alarm))
+            else:
+                output_alarms.append(alarm)
+    return output_alarms
+
+
+@app.get("/signals/all/alarms/", tags=["Frontend"])
+async def get_all_alarms() -> dict:
     try:
         # fetch db signal_id
-        signal = signals.fetch(query={"signal_id": signal_id}).items[0]
+        signals = signals.fetch(query={}).items
         # get alarms from alarm field of signal_id
-        alarms = signal["alarms"]
+        alarms_arr = []
 
-        output_alarms = []
+        for signal in signals:
+            if "alarms" in signal:
+                alarms_arr = triggered_alarms(signal["alarms"])
 
-        # for each alarm in signal
-        for alarm in alarms:
-            # check threshold direction
-            alarm = alarm_updater(alarm, signal["signal_values"][:-1])
-            output_alarm = format_alarm_msg(alarm)
-
-        return {"signal_id": signal_id,
-                "alarms": output_alarms}
+        return {alarms_arr}
     except:
-        return {"signal_id": signal_id, "message": "signal not found"}
+        return {"message": "error occured"}
 
 
 def format_alarm_msg(alarm: dict):
     return {
-        "alarm_key": alarm["key"],
-        "alarm_name": alarm.key(),
-        "alarm_message": alarm["description"],
-        "triggered": alarm["triggered"],
-        "threshold": alarm["threshold"],
-        "direction": alarm["direction"],
-        "last_checked": datetime.datetime.now().isoformat(),
-
+        "notification_id": np.random.randint(0, 1000000),
+        "title": "Monitor Alarm",
+        "body": "Warning: " + alarm["Description"],
     }
 
 
-def alarm_updater(alarm: dict, signal: dict):
+@app.get("/signals/all/alarms/formatted/", tags=["Frontend"])
+async def get_all_alarms_formatted() -> dict:
+    try:
+        # fetch db signal_id
+        signals = signals.fetch(query={}).items
+        # get alarms from alarm field of signal_id
+        alarms_arr = []
 
-    fsample = signal["fsample"]
-    seconds = alarm["debounce"]
-    # get last n values of signal
-    n = int(fsample * seconds)
-    #! NOTE: This is not the best way to adaptively average a signal,
-    #! might not work with ecg for example due to negative values
-    signal_part_avg = np.average(signal["signal_values"][-n:])
+        for signal in signals:
+            if "alarms" in signal:
+                alarms_arr = triggered_alarms(signal["alarms"], formatted=True)
 
-    if alarm is not None:
-        # check if alarm is active
-        if alarm["active"] == True:
-            # check threshold direction
-            if alarm["threshold_direction"] == "above":
-                # check if last value is above threshold
-                if signal_part_avg > alarm["threshold"]:
-                    # set alarm triggered
-                    alarm["triggered"] = True
-                    # set alarm criticality level
-                    alarm["criticality_level"] = get_critical_level(
-                        signal_part_avg,
-                        alarm["threshold"],
-                        alarm["threshold_direction"],
-                        alarm["criticality_increment"],
-                    )
-                else:
-                    alarm["triggered"] = False
-            elif alarm["threshold_direction"] == "below":
-                # check if last value is below threshold
-                if signal_part_avg < alarm["threshold"]:
-                    # set alarm triggered
-                    alarm["triggered"] = True
-                    # set alarm criticality level
-                    alarm["criticality_level"] = get_critical_level(
-                        signal_part_avg,
-                        alarm["threshold"],
-                        alarm["threshold_direction"],
-                        alarm["criticality_increment"],
-                    )
-                else:
-                    alarm["triggered"] = False
-
-            # TODO: implement acknowledgment using timing
-            if alarm["triggered"] == True:
-                alarm["acknowledged"] = False
-
-            if alarm["acknowledged"] == True:
-                alarm["triggered"] = False
-
-    return alarm
-
-# TODO: this can be done better :(
-
-
-def get_critical_level(signal_val, threshold, threshold_direction, criticality_increment):
-
-    if threshold_direction == "above":
-        if signal_val > threshold + criticality_increment*3:
-            return "Fatal"
-        elif signal_val > threshold + criticality_increment*2:
-            return "Critical"
-        elif signal_val > threshold + criticality_increment:
-            return "Warning"
-        else:
-            return "Normal"
-    elif threshold_direction == "below":
-        if signal_val < threshold - criticality_increment*3:
-            return "Fatal"
-        elif signal_val < threshold - criticality_increment*2:
-            return "Critical"
-        elif signal_val < threshold - criticality_increment:
-            return "Warning"
-        else:
-            return "Normal"
-
-
-# websockets
-# @app.websocket("/ws")
-# async def websocket_endpoint(websocket: WebSocket):
-#     await websocket.accept()
-#     while True:
-#         data = await websocket.receive_text()
-#         await websocket.send_text(f"Message text was: {data}")
+        return {alarms_arr}
+    except:
+        return {"message": "error occured"}

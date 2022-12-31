@@ -195,5 +195,5 @@ def send_sine_wave():
         print(response.text)
 
 
-# send_sine_wave()
-send_csv_signal()
+send_sine_wave()
+# send_csv_signal()
