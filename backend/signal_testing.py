@@ -8,64 +8,49 @@ import numpy as np
 
 preset_alarms_dict = {
     "hr_tachy": {
-        "description": "The patient is tachycardic.",
+        "description": "The patient is tachycardic!",
         "type": "hrm",
-        "tiggered": True,
-        "acknowledged": False,
+        "triggered": True,
         "threshold": 120,
         "debouncing": 5,
         "threshold_direction": "above",
         "threshold_unit": "BPM",
-        "criticality_increment": 10,
-        "alarm_state": "Normal",
     },
     "spo2_hypo": {
-        "description": "The patient is hypoxic.",
+        "description": "The patient is hypoxic!",
         "type": "spo2",
-        "tiggered": True,
-        "acknowledged": False,
+        "triggered": True,
         "threshold": 90,
         "debouncing": 5,
         "threshold_direction": "below",
         "threshold_unit": "%",
-        "criticality_increment": -5,
-        "alarm_state": "Normal",
     },
     "hr_brady": {
-        "description": "The patient is bradycardic.",
+        "description": "The patient is bradycardic!",
         "type": "hrm",
-        "tiggered": True,
-        "acknowledged": False,
+        "triggered": True,
         "threshold": 50,
         "debouncing": 5,
         "threshold_direction": "below",
         "threshold_unit": "BPM",
-        "criticality_increment": -10,
-        "alarm_state": "Normal",
     },
     "temp_hypo": {
-        "description": "The patient is hypothermic.",
+        "description": "The patient is hypothermic!",
         "type": "temp",
-        "tiggered": True,
-        "acknowledged": False,
+        "triggered": True,
         "threshold": 35,
         "debouncing": 5,
         "threshold_direction": "below",
         "threshold_unit": "°C",
-        "criticality_increment": -0.8,
-        "alarm_state": "Normal",
     },
     "temp_hyper": {
-        "description": "The patient is hyperthermic.",
+        "description": "The patient is hyperthermic!",
         "type": "temp",
-        "tiggered": True,
-        "acknowledged": False,
+        "triggered": True,
         "threshold": 38,
         "debouncing": 5,
         "threshold_direction": "above",
         "threshold_unit": "°C",
-        "criticality_increment": 0.8,
-        "alarm_state": "Normal",
     },
 }
 
@@ -109,7 +94,7 @@ def send_csv_signal():
     signal1data = {
         "signal_id": 1,
         "signal_name": "Heart Rate",
-        "signal_values": [], #np.zeros(fsample1 * window_sec1).tolist(),
+        "signal_values": [],  # np.zeros(fsample1 * window_sec1).tolist(),
         "fsample": fsample1,
         "window_sec": window_sec1,
         "decimal_point": 1,
@@ -131,7 +116,7 @@ def send_csv_signal():
     signal2data = {
         "signal_id": 2,
         "signal_name": "Resp. Rate",
-        "signal_values": [], #np.zeros(fsample2 * window_sec2).tolist(),
+        "signal_values": [],  # np.zeros(fsample2 * window_sec2).tolist(),
         "fsample": fsample2,
         "window_sec": window_sec2,
         "decimal_point": 1,
@@ -195,5 +180,5 @@ def send_sine_wave():
         print(response.text)
 
 
-send_sine_wave()
-# send_csv_signal()
+# send_sine_wave()
+send_csv_signal()

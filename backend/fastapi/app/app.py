@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from deta import Deta
 from deta.base import Util
-from alarms import preset_alarms_dict
+# from alarms import preset_alarms_dict, alarm_updater, triggered_alarms
 import datetime
 import json
 from starlette.requests import Request
@@ -28,6 +28,110 @@ app.add_middleware(
 print("Started up. at " + str(datetime.datetime.now(timezone).isoformat()))
 
 MAX_SIGNAL_SAMPLES = 100000
+
+
+#! hardcoded for now
+preset_alarms_dict = {
+    "hr_tachy": {
+        "description": "The patient is tachycardic!",
+        "type": "hrm",
+        "triggered": True,
+        "threshold": 120,
+        "debouncing": 5,
+        "threshold_direction": "above",
+        "threshold_unit": "BPM",
+    },
+    "spo2_hypo": {
+        "description": "The patient is hypoxic!",
+        "type": "spo2",
+        "triggered": True,
+        "threshold": 90,
+        "debouncing": 5,
+        "threshold_direction": "below",
+        "threshold_unit": "%",
+    },
+    "hr_brady": {
+        "description": "The patient is bradycardic!",
+        "type": "hrm",
+        "triggered": True,
+        "threshold": 50,
+        "debouncing": 5,
+        "threshold_direction": "below",
+        "threshold_unit": "BPM",
+    },
+    "temp_hypo": {
+        "description": "The patient is hypothermic!",
+        "type": "temp",
+        "triggered": True,
+        "threshold": 35,
+        "debouncing": 5,
+        "threshold_direction": "below",
+        "threshold_unit": "°C",
+    },
+    "temp_hyper": {
+        "description": "The patient is hyperthermic!",
+        "type": "temp",
+        "triggered": True,
+        "threshold": 38,
+        "debouncing": 5,
+        "threshold_direction": "above",
+        "threshold_unit": "°C",
+    },
+}
+
+
+def alarm_updater(alarms: dict, signal_values: list, fsample: float):
+    updated_alarms = []
+    for alarm in alarms:
+        seconds = alarm["debouncing"]
+        # get last n values of signal
+        n = int(fsample * seconds)
+        # clip to maximum just in case
+        if n > len(signal_values):
+            n = len(signal_values)
+
+        #! NOTE: This is not the best way to adaptively average a signal,
+        #! might not work with ecg for example due to negative values
+
+        signal_part_avg = np.average(signal_values[-n:])
+
+        # check threshold direction
+        if alarm["threshold_direction"] == "above":
+            # check if last value is above threshold
+            if signal_part_avg > alarm["threshold"]:
+                # set alarm triggered
+                alarm["triggered"] = True
+            else:
+                alarm["triggered"] = False
+        elif alarm["threshold_direction"] == "below":
+            # check if last value is below threshold
+            if signal_part_avg < alarm["threshold"]:
+                # set alarm triggered
+                alarm["triggered"] = True
+            else:
+                alarm["triggered"] = False
+        updated_alarms.append(alarm)
+
+    return alarms
+
+
+def format_alarm_msg(alarm: dict):
+    return {
+        "notification_id": np.random.randint(0, 1000000),
+        "title": "Monitor Alarm",
+        "body": "Warning: " + alarm["description"],
+    }
+
+
+def triggered_alarms(alarms: list, formatted: bool = False):
+    output_alarms = []
+    for alarm in alarms:
+        if alarm["triggered"]:
+            if formatted:
+                output_alarms.append(format_alarm_msg(alarm))
+            else:
+                output_alarms.append(alarm)
+    return output_alarms
 
 
 signal_dict = [{
@@ -70,19 +174,19 @@ signal_dict = [{
 }]
 
 
-@app.get("/", tags=["Root"])
+@ app.get("/", tags=["Root"])
 async def read_root() -> dict:
     return {"message": "nassoura fel mansoura"}
 
 
 # Health check
-@app.get("/health", tags=["Health", "Embedded", "Frontend"])
+@ app.get("/health", tags=["Health", "Embedded", "Frontend"])
 async def health_check() -> dict:
     return {"status": "ok"}
 
 
 # Post -> initialize test signals
-@app.post("/init", tags=["Testing"])
+@ app.post("/init", tags=["Testing"])
 async def init_signals() -> dict:
     # iterate on dict keys
     for item in signal_dict:
@@ -94,13 +198,12 @@ async def init_signals() -> dict:
 
 
 # Get -> get signals info
-@app.get("/signals/all", tags=["Frontend", "Testing"])
+@ app.get("/signals/all", tags=["Frontend", "Testing"])
 async def get_signals() -> dict:
     # get important info from signals (not the whole signal)
     try:
         signals_info = []
         response = signals.fetch().items
-        # print(len(response))
         for item in response:
             signals_info.append({
                 "signal_id": item['signal_id'],
@@ -120,7 +223,7 @@ async def get_signals() -> dict:
 
 
 # Get -> read signal
-@app.get("/signals/{signal_id}", tags=["Frontend"])
+@ app.get("/signals/{signal_id}", tags=["Frontend"])
 async def read_signal(signal_id: int) -> dict:
     try:
         signal = signals.fetch({"signal_id": signal_id}).items[0]
@@ -135,9 +238,9 @@ async def read_signal(signal_id: int) -> dict:
 
 
 # Post -> create new signal
-@app.post("/signals/new/{signal_id}", tags=["Embedded"])
+@ app.post("/signals/new/{signal_id}", tags=["Embedded"])
 async def create_signal(signal_id: int, request: dict) -> dict:
-    """ Create new signal 
+    """ Create new signal
     Swagger request example:
     {
         "signal_name": "Heart Rate",
@@ -149,7 +252,7 @@ async def create_signal(signal_id: int, request: dict) -> dict:
             {
                 "description": "The patient is bradycardic.",
                 "type": "hr",
-                "tiggered": 1,
+                "triggered": 1,
                 "threshold": 60,
                 "debouncing": 5,
                 "threshold_direction": "below",
@@ -186,44 +289,10 @@ async def create_signal(signal_id: int, request: dict) -> dict:
 # ! Inefficient way to update signal values, stop reading the full signal!
 
 
-def alarm_updater(alarm: dict, signal_values: list, fsample: float):
-
-    seconds = alarm["debounce"]
-    # get last n values of signal
-    n = int(fsample * seconds)
-
-    # clip to maximum just in case
-    if n > len(signal_values):
-        n = len(signal_values)
-
-    #! NOTE: This is not the best way to adaptively average a signal,
-    #! might not work with ecg for example due to negative values
-
-    signal_part_avg = np.average(signal_values[-n:])
-
-    if alarm is not None:
-        # check threshold direction
-        if alarm["threshold_direction"] == "above":
-            # check if last value is above threshold
-            if signal_part_avg > alarm["threshold"]:
-                # set alarm triggered
-                alarm["triggered"] = True
-            else:
-                alarm["triggered"] = False
-        elif alarm["threshold_direction"] == "below":
-            # check if last value is below threshold
-            if signal_part_avg < alarm["threshold"]:
-                # set alarm triggered
-                alarm["triggered"] = True
-            else:
-                alarm["triggered"] = False
-
-    return alarm
-
 # Patch -> append signal with buffer
 
 
-@app.patch("/signals/append/{signal_id}", tags=["Embedded"])
+@ app.patch("/signals/append/{signal_id}", tags=["Embedded"])
 async def push_signal(signal_id: int, signal_values: list) -> dict:
     try:
         # search for signal in db
@@ -234,7 +303,7 @@ async def push_signal(signal_id: int, signal_values: list) -> dict:
         if len(res["signal_values"]) > MAX_SIGNAL_SAMPLES:
             if len(res["signal_values"]) + len(
                     signal_values) > MAX_SIGNAL_SAMPLES:
-                #clear and append
+                # clear and append
                 signal_values = signal_values
                 signals.update({"signal_values": signal_values}, key)
             else:
@@ -245,10 +314,10 @@ async def push_signal(signal_id: int, signal_values: list) -> dict:
                     }
         else:
             new_signal_values = Util.Append(signal_values)
-            # print("new signal values: ", new_signal_values)
             alarms = res["alarms"]
+
             new_alarms = alarm_updater(
-                alarms, new_signal_values, res["fsample"])
+                alarms, signal_values, res["fsample"])
             signals.update(
                 {
                     "signal_values": new_signal_values,
@@ -268,7 +337,7 @@ async def push_signal(signal_id: int, signal_values: list) -> dict:
 
 
 # Delete -> delete signal
-@app.delete("/signals/{signal_id}", tags=["Embedded"])
+@ app.delete("/signals/{signal_id}", tags=["Embedded"])
 async def delete_signal(signal_id: int) -> dict:
     try:
         result = signals.fetch({"signal_id": signal_id}).items
@@ -280,14 +349,13 @@ async def delete_signal(signal_id: int) -> dict:
 
 
 # Delete -> delete all signals
-@app.delete("/signals/all/", tags=["Backend", "Embedded"])
+@ app.delete("/signals/all/", tags=["Backend", "Embedded"])
 async def delete_all_signals(confirm: str) -> dict:
     """ Write 'y' to confirm deletion of all signals """
     if confirm == "y":
         signals_dict = signals.fetch().items
 
         for item in signals_dict:
-            # print("deleted item: ", item["signal_id"])
             signals.delete(item["key"])
 
         return {"message": "all signals deleted"}
@@ -296,7 +364,7 @@ async def delete_all_signals(confirm: str) -> dict:
 
 
 # Get -> calculate signal statistics
-@app.get("/signals/stats/{signal_id}", tags=["Frontend"])
+@ app.get("/signals/stats/{signal_id}", tags=["Frontend"])
 async def calculate_signal_stats(signal_id: int) -> dict:
     try:
         item = signals.fetch({"signal_id": signal_id}).items[0]
@@ -322,7 +390,7 @@ async def calculate_signal_stats(signal_id: int) -> dict:
 
 # ? start time and end time instead?
 # Get -> gets a subset of the signal
-@app.get("/signals/subset/{signal_id}", tags=["Frontend"])
+@ app.get("/signals/subset/{signal_id}", tags=["Frontend"])
 async def get_signal_subset(signal_id: int, start: int, end: int) -> dict:
     try:
         resp = signals.fetch(query={"signal_id": signal_id}).items[0]
@@ -343,7 +411,7 @@ async def get_signal_subset(signal_id: int, start: int, end: int) -> dict:
 
 
 # Get -> gets the last n values of the signal
-@app.get("/signals/last/{signal_id}", tags=["Frontend"])
+@ app.get("/signals/last/{signal_id}", tags=["Frontend"])
 async def get_last_n_values(signal_id: int, n: int) -> dict:
     try:
         signal_values = signals.fetch(query={
@@ -360,7 +428,7 @@ async def get_last_n_values(signal_id: int, n: int) -> dict:
 
 
 # Get -> gets last values by seconds using fsample
-@app.get("/signals/last/seconds/{signal_id}", tags=["Frontend"])
+@ app.get("/signals/last/seconds/{signal_id}", tags=["Frontend"])
 async def get_last_values_by_seconds(signal_id: int, seconds: float) -> dict:
     try:
         response = signals.fetch(query={"signal_id": signal_id}).items[0]
@@ -368,12 +436,12 @@ async def get_last_values_by_seconds(signal_id: int, seconds: float) -> dict:
         fsample = response["fsample"]
         time_updated = response["time_updated"]
 
+        alarm_triggered = False
         # check if any alarm in signal is triggered
-        if response["alarms"] is not None:
+        if len(response["alarms"]) != 0:
             for alarm in response["alarms"]:
-                if alarm["triggered"]:
+                if alarm['triggered'] or alarm_triggered:
                     alarm_triggered = True
-                    break
                 else:
                     alarm_triggered = False
 
@@ -385,7 +453,7 @@ async def get_last_values_by_seconds(signal_id: int, seconds: float) -> dict:
                 "fsample": fsample,
                 "time_updated": time_updated,
                 "alarm_triggered": alarm_triggered,
-                "range_y": [50, 200],  # TODO: save this in db later
+                "range_y": [50, 200]  # TODO: save this in db later
             }
     except:
         return {
@@ -394,75 +462,49 @@ async def get_last_values_by_seconds(signal_id: int, seconds: float) -> dict:
         }
 
 
-# @app.get("/signals/{signal_id}/alarms/", tags=["Frontend"])
-# async def check_alarms(signal_id: int) -> dict:
-#     try:
-#         # fetch db signal_id
-#         signal = signals.fetch(query={"signal_id": signal_id}).items[0]
-#         # get alarms from alarm field of signal_id
-#         alarms = signal["alarms"]
+@ app.get("/signals/{signal_id}/alarms/", tags=["Frontend"])
+async def alarms_one_signal(signal_id: int) -> dict:
+    try:
+        # fetch db signal_id
+        signal = signals.fetch(query={"signal_id": signal_id}).items[0]
+        # get alarms from alarm field of signal_id
+        alarms = signal["alarms"]
 
-#         output_alarms = []
-
-#         # for each alarm in signal
-#         for alarm in alarms:
-#             # check threshold direction
-#             alarm = alarm_updater(alarm, signal["signal_values"][:-1])
-#             output_alarm = format_alarm_msg(alarm)
-
-#         return {"signal_id": signal_id,
-#                 "alarms": output_alarms}
-#     except:
-#         return {"signal_id": signal_id, "message": "signal not found"}
-
-def triggered_alarms(alarms: list, formatted: bool = False):
-    output_alarms = []
-    for alarm in alarms:
-        if alarm["triggered"]:
-            if formatted:
-                output_alarms.append(format_alarm_msg(alarm))
-            else:
-                output_alarms.append(alarm)
-    return output_alarms
+        return {"signal_id": signal_id,
+                "alarms": alarms}
+    except:
+        return {"signal_id": signal_id, "message": "signal not found"}
 
 
-@app.get("/signals/all/alarms/", tags=["Frontend"])
+@ app.get("/signals/all/trigalarms/", tags=["Frontend"])
 async def get_all_alarms() -> dict:
     try:
         # fetch db signal_id
-        signals = signals.fetch(query={}).items
+        response = signals.fetch().items
+
         # get alarms from alarm field of signal_id
         alarms_arr = []
-
-        for signal in signals:
+        for signal in response:
             if "alarms" in signal:
-                alarms_arr = triggered_alarms(signal["alarms"])
-
-        return {alarms_arr}
+                alarms_arr.append(triggered_alarms(signal["alarms"]))
+        flattened = [val for sublist in alarms_arr for val in sublist]
+        return flattened
     except:
         return {"message": "error occured"}
 
 
-def format_alarm_msg(alarm: dict):
-    return {
-        "notification_id": np.random.randint(0, 1000000),
-        "title": "Monitor Alarm",
-        "body": "Warning: " + alarm["Description"],
-    }
-
-
-@app.get("/signals/all/alarms/formatted/", tags=["Frontend"])
+@ app.get("/signals/all/trigalarms/formatted/", tags=["Frontend"])
 async def get_all_alarms_formatted() -> dict:
     try:
         # fetch db signal_id
-        signals = signals.fetch(query={}).items
+        response = signals.fetch().items
         # get alarms from alarm field of signal_id
         alarms_arr = []
-
-        for signal in signals:
+        for signal in response:
             if "alarms" in signal:
-                alarms_arr = triggered_alarms(signal["alarms"], formatted=True)
-
-        return {alarms_arr}
+                alarms_arr.append(triggered_alarms(
+                    signal["alarms"], formatted=True))
+        flattened = [val for sublist in alarms_arr for val in sublist]
+        return flattened
     except:
         return {"message": "error occured"}
