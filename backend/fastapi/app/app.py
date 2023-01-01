@@ -135,19 +135,15 @@ def triggered_alarms(alarms: list, formatted: bool = False):
 
 
 signal_dict = [{
-    "signal_id":
-    1,
-    "signal_name":
-    "Heart Rate",
-    "signal_values":
-    np.random.rand(1000).tolist(),
-    "fsample": 1000,
-    "window_sec": 30,
+    "signal_id": 1,
+    "signal_name": "Heart Rate",
+    "signal_values": np.zeros(20).tolist(),
+    "fsample": 1,
+    "window_sec": 20,
     "decimal_point": 1,
-    "time_created":
-    datetime.datetime.now(timezone).isoformat(),
-    "time_updated":
-    datetime.datetime.now(timezone).isoformat(),
+    "range_y": [40, 180],
+    "time_created": datetime.datetime.now(timezone).isoformat(),
+    "time_updated": datetime.datetime.now(timezone).isoformat(),
     "alarms": [preset_alarms_dict["hr_brady"], preset_alarms_dict["hr_tachy"]],
 },
     {
@@ -157,6 +153,7 @@ signal_dict = [{
     "fsample": 1000,
     "window_sec": 20,
     "decimal_point": 1,
+    "range_y": [80, 100],
     "time_created": datetime.datetime.now(timezone).isoformat(),
     "time_updated": datetime.datetime.now(timezone).isoformat(),
     "alarms": [preset_alarms_dict["spo2_hypo"]],
@@ -168,6 +165,7 @@ signal_dict = [{
     "fsample": 1000,
     "window_sec": 30,
     "decimal_point": 1,
+    "range_y": [35, 40],
     "time_created": datetime.datetime.now(timezone).isoformat(),
     "time_updated": datetime.datetime.now(timezone).isoformat(),
     "alarms": [preset_alarms_dict["temp_hypo"], preset_alarms_dict["temp_hyper"]],
@@ -213,7 +211,8 @@ async def get_signals() -> dict:
                 "decimal_point": item["decimal_point"],
                 "time_created": item['time_created'],
                 "time_updated": item['time_updated'],
-                "signal_length": len(item['signal_values'])
+                "signal_length": len(item['signal_values']),
+                "range_y": item["range_y"]
             })
         if len(signals_info) == 0:
             return {"message": "no signals found"}
@@ -248,6 +247,7 @@ async def create_signal(signal_id: int, request: dict) -> dict:
         "fsample": 1000,
         "window_sec": 30,
         "decimal_point": 1,
+        "range_y": [50, 180],
         "alarms": [
             {
                 "description": "The patient is bradycardic.",
@@ -274,6 +274,7 @@ async def create_signal(signal_id: int, request: dict) -> dict:
                 "fsample": request_body["fsample"],
                 "window_sec": request_body["window_sec"],
                 "decimal_point": request_body["decimal_point"],
+                "range_y": request_body["range_y"],
                 "time_created": datetime.datetime.now().isoformat(),
                 "time_updated": datetime.datetime.now().isoformat(),
                 "alarms": request_body["alarms"]
@@ -453,7 +454,7 @@ async def get_last_values_by_seconds(signal_id: int, seconds: float) -> dict:
                 "fsample": fsample,
                 "time_updated": time_updated,
                 "alarm_triggered": alarm_triggered,
-                "range_y": [50, 200]  # TODO: save this in db later
+                "range_y": response["range_y"]
             }
     except:
         return {

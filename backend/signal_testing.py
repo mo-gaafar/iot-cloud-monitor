@@ -2,9 +2,12 @@
 import requests
 import json
 import time
+import datetime
 import wfdb
 import numpy as np
 
+
+timezone = datetime.timezone(datetime.timedelta(hours=2))
 
 preset_alarms_dict = {
     "hr_tachy": {
@@ -82,10 +85,10 @@ def send_csv_signal():
 
     # reinitialize signals
     # request deletion of signal id 1
-    requests.delete("https://no1rz2.deta.dev/signals/1")
+    # requests.delete("https://no1rz2.deta.dev/signals/1")
 
-    # request deletion of signal id 2
-    requests.delete("https://no1rz2.deta.dev/signals/2")
+    # # request deletion of signal id 2
+    # requests.delete("https://no1rz2.deta.dev/signals/2")
 
     # request creation of signal id 1
     fsample1 = 1
@@ -94,40 +97,44 @@ def send_csv_signal():
     signal1data = {
         "signal_id": 1,
         "signal_name": "Heart Rate",
-        "signal_values": [],  # np.zeros(fsample1 * window_sec1).tolist(),
-        "fsample": fsample1,
-        "window_sec": window_sec1,
+        "signal_values": np.zeros(20).tolist(),
+        "fsample": 1,
+        "window_sec": 20,
         "decimal_point": 1,
-        "alarms": [preset_alarms_dict["hr_brady"], preset_alarms_dict["hr_tachy"]]
+        "range_y": [40, 180],
+        "time_created": datetime.datetime.now(timezone).isoformat(),
+        "time_updated": datetime.datetime.now(timezone).isoformat(),
+        "alarms": [preset_alarms_dict["hr_brady"], preset_alarms_dict["hr_tachy"]],
     }
 
     # url encoded data
-    signal1data = json.dumps(signal1data)
-    print(signal1data)
+    # signal1data = json.dumps(signal1data)
+    # print(signal1data)
 
-    response = requests.post(
-        "https://no1rz2.deta.dev/signals/new/1", data=signal1data)
-    print(response.text)
+    # response = requests.post(
+    #     "https://no1rz2.deta.dev/signals/new/1", data=signal1data)
+    # print(response.text)
+
     # request creation of signal id 2
 
-    fsample2 = 1
-    window_sec2 = 20
+    # fsample2 = 1
+    # window_sec2 = 20
 
-    signal2data = {
-        "signal_id": 2,
-        "signal_name": "Resp. Rate",
-        "signal_values": [],  # np.zeros(fsample2 * window_sec2).tolist(),
-        "fsample": fsample2,
-        "window_sec": window_sec2,
-        "decimal_point": 1,
-        "alarms": []
-    }
+    # signal2data = {
+    #     "signal_id": 2,
+    #     "signal_name": "Resp. Rate",
+    #     "signal_values": [],  # np.zeros(fsample2 * window_sec2).tolist(),
+    #     "fsample": fsample2,
+    #     "window_sec": window_sec2,
+    #     "decimal_point": 1,
+    #     "alarms": []
+    # }
 
-    signal2data = json.dumps(signal2data)
-    response = requests.post(
-        "https://no1rz2.deta.dev/signals/new/2", data=signal2data)
+    # signal2data = json.dumps(signal2data)
+    # response = requests.post(
+    #     "https://no1rz2.deta.dev/signals/new/2", data=signal2data)
 
-    print(response.text)
+    # print(response.text)
 
     # get absolute path to csv file using os
     file_path = os.path.join(os.path.dirname(__file__), "test_measure.csv")
@@ -140,21 +147,21 @@ def send_csv_signal():
     # print(RespRate)
     # print(HR)
 
-    sec_delay = 2
-    fs = 0.5
-    buff_size = round(fs * sec_delay)
+    sec_delay = 10
+    buff_size = round(fsample1 * sec_delay)
     for i in range(0, len(RespRate), buff_size):
-        time.sleep(sec_delay/2)
-        payload = RespRate[i:i + buff_size]
-        payload = json.dumps(payload)
-        print(payload)
-        response = requests.post(url+"2", data=payload)
-        print(response.text)
+        time.sleep(sec_delay)
+        # payload = RespRate[i:i + buff_size]
+        # payload = json.dumps(payload)
+        # print(payload)
+        # response = requests.post(url+"2", data=payload)
+        # print(response.text)
 
-        time.sleep(sec_delay/2)
+        # time.sleep(sec_delay/2)
         payload2 = HR[i:i + buff_size]
         payload2 = json.dumps(payload2)
-        print(payload2)
+
+        print("payload2 " + str(payload2))
         response = requests.post(url+"1", data=payload2)
 
         print(response.text)
@@ -182,3 +189,4 @@ def send_sine_wave():
 
 # send_sine_wave()
 send_csv_signal()
+# send_signal()
