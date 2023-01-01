@@ -85,7 +85,7 @@ def send_csv_signal():
 
     # reinitialize signals
     # request deletion of signal id 1
-    # requests.delete("https://no1rz2.deta.dev/signals/1")
+    requests.delete("https://no1rz2.deta.dev/signals/1")
 
     # # request deletion of signal id 2
     # requests.delete("https://no1rz2.deta.dev/signals/2")
@@ -97,22 +97,20 @@ def send_csv_signal():
     signal1data = {
         "signal_id": 1,
         "signal_name": "Heart Rate",
-        "signal_values": np.zeros(20).tolist(),
-        "fsample": 1,
-        "window_sec": 20,
+        "signal_values": [],
+        "fsample": fsample1,
+        "window_sec": window_sec1,
         "decimal_point": 1,
         "range_y": [40, 180],
-        "time_created": datetime.datetime.now(timezone).isoformat(),
-        "time_updated": datetime.datetime.now(timezone).isoformat(),
         "alarms": [preset_alarms_dict["hr_brady"], preset_alarms_dict["hr_tachy"]],
     }
 
     # url encoded data
-    # signal1data = json.dumps(signal1data)
+    signal1data = json.dumps(signal1data)
     # print(signal1data)
 
-    # response = requests.post(
-    #     "https://no1rz2.deta.dev/signals/new/1", data=signal1data)
+    response = requests.post(
+        "https://no1rz2.deta.dev/signals/new/1", json=json.loads(signal1data), headers={"Content-Type": "application/json"})
     # print(response.text)
 
     # request creation of signal id 2
@@ -162,7 +160,8 @@ def send_csv_signal():
         payload2 = json.dumps(payload2)
 
         print("payload2 " + str(payload2))
-        response = requests.post(url+"1", data=payload2)
+        response = requests.post(
+            url+"1", json=json.loads(payload2), headers={"Content-Type": "application/json"})
 
         print(response.text)
 
