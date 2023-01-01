@@ -11,7 +11,7 @@ class Patient {
   final String imagePath;
   final String monitorId;
 
-  late List<SignalData> vitals = [];
+  // late List<SignalData> vitals = [];
 
   Patient(
       {required this.firstName,

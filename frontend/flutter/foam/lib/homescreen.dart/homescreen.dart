@@ -20,7 +20,7 @@ class Homescreen extends StatelessWidget {
               style: TextStyle(fontFamily: 'Helvetica Neue'),
               children: [
                 TextSpan(
-                  text: 'FOAM\n',
+                  text: 'REMEDY.\n',
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: 32,
@@ -28,7 +28,7 @@ class Homescreen extends StatelessWidget {
                   ),
                 ),
                 TextSpan(
-                  text: 'The Father Of All Monitors.',
+                  text: 'PATIENT MONITORING SYSTEMS',
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: 9,

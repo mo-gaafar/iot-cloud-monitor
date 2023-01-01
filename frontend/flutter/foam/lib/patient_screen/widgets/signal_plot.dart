@@ -7,14 +7,21 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 class SignalPlot extends StatefulWidget {
-  final signalId;
-  final double windowSec;
+  final int signalId;
+  final int windowSec;
   final int decimalPlaces;
-  const SignalPlot(
-      {super.key,
-      required this.signalId,
-      required this.windowSec,
-      required this.decimalPlaces});
+  final double minY;
+  final double maxY;
+  late List<FlSpot> samples;
+  SignalPlot({
+    super.key,
+    required this.signalId,
+    required this.windowSec,
+    required this.decimalPlaces,
+    required this.minY,
+    required this.maxY,
+    required this.samples,
+  });
 
   @override
   State<SignalPlot> createState() => _SignalPlotState();
@@ -22,32 +29,24 @@ class SignalPlot extends StatefulWidget {
 
 class _SignalPlotState extends State<SignalPlot> {
   final Color sinColor = Colors.redAccent;
-  final Color cosColor = Colors.blueAccent;
-
-  final secondsWindow = 1;
-  final sinPoints = <FlSpot>[];
-  final cosPoints = <FlSpot>[];
 
   double xValue = 0;
-  double step = 0.05;
 
-  late Timer samplesTimer;
-  late Timer statsTimer;
+  late Timer timer;
 
   List<Color> gradientColors = [
     const Color(0xff23b6e6),
     const Color(0xff02d39a),
   ];
 
-  List<FlSpot> samples = <FlSpot>[];
-  var monitorDisplay;
-  late Map signalStats = {};
+  bool alarmTriggered = false;
 
   Future fetchSamples() async {
     List<FlSpot> temp = [];
     final response = await http.get(Uri.parse(
         'https://no1rz2.deta.dev/signals/last/seconds/${widget.signalId}?seconds=${widget.windowSec}'));
     final List samplesJson = jsonDecode(response.body)['signal_values'];
+    alarmTriggered = jsonDecode(response.body)['alarm_triggered'];
     xValue = 0;
     for (int i = 0; i < samplesJson.length; i++) {
       temp.add(
@@ -56,31 +55,16 @@ class _SignalPlotState extends State<SignalPlot> {
       xValue += widget.windowSec / samplesJson.length;
     }
 
-    samples = temp;
-    monitorDisplay = samplesJson.last;
-  }
-
-  Future fetchStats() async {
-    final response = await http.get(
-        Uri.parse('https://no1rz2.deta.dev/signals/stats/${widget.signalId}'));
-
-    final statsJson = jsonDecode(response.body)['signal_stats'];
-    signalStats = statsJson;
+    widget.samples = temp;
   }
 
   @override
   void initState() {
     super.initState();
-    samplesTimer = Timer.periodic(Duration(milliseconds: 700), (timer) {
+    // monitorDisplay = widget.samples.last;
+    timer = Timer.periodic(const Duration(milliseconds: 700), (timer) {
       setState(() {
         fetchSamples();
-      });
-    });
-
-    statsTimer =
-        Timer.periodic(Duration(seconds: widget.windowSec.toInt()), (timer) {
-      setState(() {
-        fetchStats();
       });
     });
   }
@@ -88,40 +72,11 @@ class _SignalPlotState extends State<SignalPlot> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      // mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        // Text(
-        //   'x: ${xValue.toStringAsFixed(1)}',
-        //   style: const TextStyle(
-        //     color: Colors.black,
-        //     fontSize: 18,
-        //     fontWeight: FontWeight.bold,
-        //   ),
-        // ),
-        // Text(
-        //   'sin: ${sinPoints.last.y.toStringAsFixed(1)}',
-        //   style: TextStyle(
-        //     color: sinColor,
-        //     fontSize: 18,
-        //     fontWeight: FontWeight.bold,
-        //   ),
-        // ),
-        // Text(
-        //   'cos: ${cosPoints.last.y.toStringAsFixed(1)}',
-        //   style: TextStyle(
-        //     color: cosColor,
-        //     fontSize: 18,
-        //     fontWeight: FontWeight.bold,
-        //   ),
-        // ),
-        // const SizedBox(
-        //   height: 12,
-        // ),
         Container(
-          padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
+          padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
           clipBehavior: Clip.hardEdge,
-          // width: 300,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             borderRadius: BorderRadius.all(
               Radius.circular(10),
             ),
@@ -129,20 +84,16 @@ class _SignalPlotState extends State<SignalPlot> {
           ),
           height: 200,
           child: LineChart(
-            swapAnimationDuration: Duration(milliseconds: 0),
+            swapAnimationDuration: const Duration(milliseconds: 0),
             LineChartData(
+              minY: widget.minY,
+              maxY: widget.maxY,
               borderData: FlBorderData(show: false),
-              // minY: -1,
-              // maxY: 1,
-              // minX: sinPoints.first.x,
-              // maxX: 1,
               lineTouchData: LineTouchData(enabled: false),
               clipData: FlClipData.all(),
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: true,
-                // horizontalInterval: 1,
-                // verticalInterval: 1,
                 getDrawingHorizontalLine: (value) {
                   return FlLine(
                     color: const Color(0xff37434d),
@@ -157,8 +108,7 @@ class _SignalPlotState extends State<SignalPlot> {
                 },
               ),
               lineBarsData: [
-                linePlot(samples),
-                // cosLine(cosPoints),
+                linePlot(widget.samples),
               ],
               titlesData: FlTitlesData(
                 show: false,
@@ -166,16 +116,12 @@ class _SignalPlotState extends State<SignalPlot> {
             ),
           ),
         ),
-        SizedBox(
-          height: 20,
-        ),
         Text(
-          monitorDisplay != null
-              ? monitorDisplay.toStringAsFixed(widget.decimalPlaces)
-              : '',
-          style: TextStyle(fontSize: 100),
+          widget.samples.last.y.abs().toStringAsFixed(widget.decimalPlaces),
+          style: TextStyle(
+              fontSize: 120,
+              color: alarmTriggered ? Colors.red.shade900 : Colors.white),
         ),
-        Text((signalStats['mean']).toString()),
       ],
     );
   }
@@ -208,25 +154,9 @@ class _SignalPlotState extends State<SignalPlot> {
     );
   }
 
-  LineChartBarData cosLine(List<FlSpot> points) {
-    return LineChartBarData(
-      spots: points,
-      dotData: FlDotData(
-        show: false,
-      ),
-      gradient: LinearGradient(
-        colors: [sinColor.withOpacity(0), sinColor],
-        stops: const [0.1, 1.0],
-      ),
-      barWidth: 4,
-      isCurved: false,
-    );
-  }
-
   @override
   void dispose() {
-    samplesTimer.cancel();
-    statsTimer.cancel();
+    timer.cancel();
     super.dispose();
   }
 }
